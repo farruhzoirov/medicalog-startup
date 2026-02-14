@@ -1,0 +1,53 @@
+name: Deploy Medicalog Startup to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: SSH to Server and Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: 22
+          script: |
+            # NVM ni yoqish (node, npm, pm2 ishlashi uchun)
+            export NVM_DIR="/root/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            # Agar pm2 o‘rnatilmagan bo‘lsa → global qilib o‘rnatamiz
+            if ! command -v pm2 &> /dev/null
+            then
+              npm install -g pm2
+            fi
+
+            cd /home/${{ secrets.SERVER_USER }}
+
+            if [ ! -d "medicalog-startup" ]; then
+              git clone https://github.com/farruhzoirov/medicalog-startup.git
+            fi
+
+            cd medicalog-startup
+            git reset --hard HEAD
+            git pull origin main
+
+            npm install --force
+            npm run build
+
+            cat > .env <<EOL
+            MONGODB_URI=${{ secrets.MONGODB_URI }}
+            LOGIN=${{ secrets.LOGIN }}
+            PASSWORD=${{ secrets.PASSWORD }}
+            EOL
+
+            pm2 start dist/main.js --name medicalog-startup || pm2 restart medicalog-startup
+            pm2 save

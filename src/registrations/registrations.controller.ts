@@ -47,7 +47,7 @@ export class RegistrationsController {
     const filePaths = await this.registrationsService.generateWordAndPdfFile(forGenerateWordDto);
     return {
       success: true,
-      message: 'Word file generated successfully',
+      message: 'Files generated successfully',
       filePaths,
     };
   }

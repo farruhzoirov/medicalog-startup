@@ -59,8 +59,10 @@ export class RegistrationsController {
     return {
       success: true,
       message: "Report generated successfully",
-      wordFilePath,
-      pdfFilePath,
+      filePaths: {
+        wordFilePath,
+        pdfFilePath,
+      }
     };
   }
 

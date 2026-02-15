@@ -331,22 +331,10 @@ export class RegistrationsService {
 
   async deleteRegistration(id: string) {
     try {
-      const [findRegistrationData, lastRegistrationData] = await Promise.all([
-        this.registrationsModel.findById(id),
-        this.registrationsModel.findOne().sort({ createdAt: -1 }),
-      ]);
+      const findRegistrationData = await this.registrationsModel.findById(id);
 
       if (!findRegistrationData) {
         throw new NotFoundException('Registration data not found');
-      }
-
-      if (
-        findRegistrationData.id.toString() !==
-        lastRegistrationData.id.toString()
-      ) {
-        throw new BadRequestException(
-          "Can't delete it, it must be latest registration",
-        );
       }
 
       await this.registrationsModel.findByIdAndDelete(id);

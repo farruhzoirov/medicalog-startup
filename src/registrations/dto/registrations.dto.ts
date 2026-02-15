@@ -7,8 +7,8 @@ import {
   IsOptional,
   IsString,
   Length,
-} from 'class-validator';
-import { Gender } from '../schemas/registrations.schema';
+} from "class-validator";
+import { Gender } from "../schemas/registrations.schema";
 
 export class AuthDto {
   @IsString()
@@ -17,7 +17,6 @@ export class AuthDto {
   @IsString()
   password: string;
 }
-
 
 export class ForGenerateWordDto {
   @IsOptional()
@@ -101,6 +100,16 @@ export class GetFilteredRegistrationsDto {
   @IsOptional()
   @IsString()
   otherRadiologyReport: string;
+}
+
+export class ReportDto {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 }
 
 export class CreateRegistrationDto {

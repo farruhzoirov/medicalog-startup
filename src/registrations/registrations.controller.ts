@@ -7,80 +7,102 @@ import {
   UnauthorizedException,
   UsePipes,
   ValidationPipe,
-} from '@nestjs/common';
+} from "@nestjs/common";
 import {
   AuthDto,
   CreateRegistrationDto,
   GetFilteredRegistrationsDto,
   UpdateRegistrationDto,
-} from './dto/registrations.dto';
-import { RegistrationsService } from './registrations.service';
+  ReportDto,
+} from "./dto/registrations.dto";
+import { RegistrationsService } from "./registrations.service";
 
-@Controller('registrations')
+@Controller("registrations")
 @UsePipes(new ValidationPipe({ whitelist: true }))
 export class RegistrationsController {
-  constructor(private readonly registrationsService: RegistrationsService) { }
+  constructor(private readonly registrationsService: RegistrationsService) {}
 
   @HttpCode(HttpStatus.OK)
-  @Post('/auth')
+  @Post("/auth")
   async authService(@Body() authDto: AuthDto) {
     const isValid = await this.registrationsService.auth(authDto);
 
     if (!isValid) {
       throw new UnauthorizedException({
         success: false,
-        message: 'Invalid credential',
+        message: "Invalid credential",
       });
     }
 
     return {
       success: true,
-      message: 'Authorized successfully',
+      message: "Authorized successfully",
     };
   }
 
   @HttpCode(HttpStatus.OK)
-  @Post('print')
+  @Post("/reports")
+  async generateReport(@Body() reportDto: ReportDto) {
+    const { wordFilePath } =
+      await this.registrationsService.generateReport(reportDto);
+    return {
+      success: true,
+      message: "Report generated successfully",
+      filePath: wordFilePath,
+    };
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post("print")
   async generateWordFile(
     @Body() forGenerateWordDto: GetFilteredRegistrationsDto,
   ) {
-    const filePaths = await this.registrationsService.generateWordAndPdfFile(forGenerateWordDto);
+    const filePaths =
+      await this.registrationsService.generateWordAndPdfFile(
+        forGenerateWordDto,
+      );
     return {
       success: true,
-      message: 'Files generated successfully',
+      message: "Files generated successfully",
       filePaths,
     };
   }
 
   @HttpCode(HttpStatus.OK)
-  @Post('/get-list')
+  @Post("/get-list")
   async getFilteredRegistrations(
     @Body() getFilteredRegistrationsDto: GetFilteredRegistrationsDto,
   ) {
-    const { data, totalCount, totalPagesCount, page, limit, pendingReportsCount } =
-      await this.registrationsService.getFilteredRegistrations(
-        getFilteredRegistrationsDto,
-      );
+    const {
+      data,
+      totalCount,
+      totalPagesCount,
+      page,
+      limit,
+      pendingReportsCount,
+    } = await this.registrationsService.getFilteredRegistrations(
+      getFilteredRegistrationsDto,
+    );
     return {
-      message: 'Registrations...',
+      message: "Registrations...",
       success: true,
       data,
       totalCount,
       totalPagesCount,
       page,
       limit,
-      pendingReportsCount
+      pendingReportsCount,
     };
   }
 
-  @Post('create')
+  @Post("create")
   async createRegistration(
     @Body() createRegistrationDto: CreateRegistrationDto,
   ) {
     const { totalCount, totalPagesCount } =
       await this.registrationsService.createRegistration(createRegistrationDto);
     return {
-      message: 'Registration created successfully',
+      message: "Registration created successfully",
       success: true,
       totalCount,
       totalPagesCount,
@@ -88,14 +110,14 @@ export class RegistrationsController {
   }
 
   @HttpCode(HttpStatus.OK)
-  @Post('update')
+  @Post("update")
   async updateRegistration(
     @Body() updateRegistrationDto: UpdateRegistrationDto,
   ) {
     const { totalCount, totalPagesCount } =
       await this.registrationsService.updateRegistration(updateRegistrationDto);
     return {
-      message: 'Registration updated successfully',
+      message: "Registration updated successfully",
       success: true,
       totalCount,
       totalPagesCount,
@@ -103,12 +125,12 @@ export class RegistrationsController {
   }
 
   @HttpCode(HttpStatus.OK)
-  @Post('delete')
-  async deleteRegistration(@Body('id') id: string) {
+  @Post("delete")
+  async deleteRegistration(@Body("id") id: string) {
     const { totalCount, totalPagesCount } =
       await this.registrationsService.deleteRegistration(id);
     return {
-      message: 'Registration deleted successfully',
+      message: "Registration deleted successfully",
       success: true,
       totalCount,
       totalPagesCount,

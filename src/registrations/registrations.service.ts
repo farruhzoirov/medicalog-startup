@@ -2,28 +2,37 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 
-import { ConfigService } from '@nestjs/config';
-import { BackupService } from 'src/backup/backup.service';
-import { createDateRangeFilter } from 'src/helpers/dateRangeFilter.helper';
-import { formatDate } from 'src/helpers/formatDate.helper';
-import { formatRegistrations } from 'src/helpers/formatRegistrations.helper';
-import { generatePdfFile, generateWordFile } from 'src/helpers/generateWordFIle.helper';
-import { getAgeHelper } from 'src/helpers/getAge.helper';
-import { universalSearchQuery } from 'src/helpers/search.helper';
+import { ConfigService } from "@nestjs/config";
+import { BackupService } from "src/backup/backup.service";
+import { createDateRangeFilter } from "src/helpers/dateRangeFilter.helper";
+import { formatDate } from "src/helpers/formatDate.helper";
+import { formatRegistrations } from "src/helpers/formatRegistrations.helper";
+import {
+  generateReportWord,
+  ReportStats,
+} from "src/helpers/generateReport.helper";
+import {
+  generatePdfFile,
+  generateWordFile,
+} from "src/helpers/generateWordFIle.helper";
+import { getAgeHelper } from "src/helpers/getAge.helper";
+import { universalSearchQuery } from "src/helpers/search.helper";
 import {
   AuthDto,
   CreateRegistrationDto,
   GetFilteredRegistrationsDto,
-  UpdateRegistrationDto
-} from './dto/registrations.dto';
+  UpdateRegistrationDto,
+  ReportDto,
+} from "./dto/registrations.dto";
 import {
   Registrations,
   RegistrationsDocument,
-} from './schemas/registrations.schema';
+} from "./schemas/registrations.schema";
+import { buildReportPipeline } from "../helpers/build-report-pipeline.helper";
 
 @Injectable()
 export class RegistrationsService {
@@ -32,18 +41,18 @@ export class RegistrationsService {
     private readonly registrationsModel: Model<RegistrationsDocument>,
     private readonly configService: ConfigService,
     // private readonly backupService: BackupService
-  ) { }
+  ) {}
 
   async auth(authDto: AuthDto): Promise<boolean> {
-    const username = this.configService.get('AUTH').LOGIN;
-    const password = this.configService.get('AUTH').PASSWORD;
+    const username = this.configService.get("AUTH").LOGIN;
+    const password = this.configService.get("AUTH").PASSWORD;
 
     if (!username) {
-      throw new Error('username is not found');
+      throw new Error("username is not found");
     }
 
     if (!password) {
-      throw new Error('Password is not found');
+      throw new Error("Password is not found");
     }
 
     if (authDto.username === username && authDto.password === password) {
@@ -53,10 +62,10 @@ export class RegistrationsService {
     return false;
   }
 
-
-  async generateWordAndPdfFile(forGenerateWordDto: GetFilteredRegistrationsDto): Promise<{ wordFilePath: string, pdfFilePath: string }> {
+  async generateWordAndPdfFile(
+    forGenerateWordDto: GetFilteredRegistrationsDto,
+  ): Promise<{ wordFilePath: string; pdfFilePath: string }> {
     const filters: Record<string, any> = {};
-
 
     if (forGenerateWordDto.createdAtFrom || forGenerateWordDto.createdAtTo) {
       const createdAtFilter = createDateRangeFilter(
@@ -68,13 +77,16 @@ export class RegistrationsService {
 
     if (forGenerateWordDto.birthDateFrom || forGenerateWordDto.birthDateTo) {
       filters.birthDate = {};
-      if (forGenerateWordDto.birthDateFrom) filters.birthDate.$gte = forGenerateWordDto.birthDateFrom;
-      if (forGenerateWordDto.birthDateTo) filters.birthDate.$lte = forGenerateWordDto.birthDateTo;
+      if (forGenerateWordDto.birthDateFrom)
+        filters.birthDate.$gte = forGenerateWordDto.birthDateFrom;
+      if (forGenerateWordDto.birthDateTo)
+        filters.birthDate.$lte = forGenerateWordDto.birthDateTo;
     }
 
     if (forGenerateWordDto.ageFrom || forGenerateWordDto.ageTo) {
       filters.age = {};
-      if (forGenerateWordDto.ageFrom) filters.age.$gte = forGenerateWordDto.ageFrom;
+      if (forGenerateWordDto.ageFrom)
+        filters.age.$gte = forGenerateWordDto.ageFrom;
       if (forGenerateWordDto.ageTo) filters.age.$lte = forGenerateWordDto.ageTo;
     }
 
@@ -82,42 +94,93 @@ export class RegistrationsService {
 
     const addRegexFilter = (field: string, value?: string) => {
       if (value?.trim()) {
-        filters[field] = { $regex: value.trim(), $options: 'i' };
+        filters[field] = { $regex: value.trim(), $options: "i" };
       }
     };
 
-    addRegexFilter('address', forGenerateWordDto.address);
-    addRegexFilter('otherAddress', forGenerateWordDto.otherAddress);
-    addRegexFilter('job', forGenerateWordDto.job);
-    addRegexFilter('otherJob', forGenerateWordDto.otherJob);
-    addRegexFilter('visitReason', forGenerateWordDto.visitReason);
-    addRegexFilter('otherVisitReason', forGenerateWordDto.otherVisitReason);
-    addRegexFilter('radiologyReport', forGenerateWordDto.radiologyReport);
-    addRegexFilter('otherRadiologyReport', forGenerateWordDto.otherRadiologyReport);
+    addRegexFilter("address", forGenerateWordDto.address);
+    addRegexFilter("otherAddress", forGenerateWordDto.otherAddress);
+    addRegexFilter("job", forGenerateWordDto.job);
+    addRegexFilter("otherJob", forGenerateWordDto.otherJob);
+    addRegexFilter("visitReason", forGenerateWordDto.visitReason);
+    addRegexFilter("otherVisitReason", forGenerateWordDto.otherVisitReason);
+    addRegexFilter("radiologyReport", forGenerateWordDto.radiologyReport);
+    addRegexFilter(
+      "otherRadiologyReport",
+      forGenerateWordDto.otherRadiologyReport,
+    );
 
-    const pipeline: any[] = [
-      { $match: filters },
-      { $sort: { createdAt: 1 } }
-    ];
+    const pipeline: any[] = [{ $match: filters }, { $sort: { createdAt: 1 } }];
 
-    const registrations = await this.registrationsModel.aggregate(pipeline).exec()
+    const registrations = await this.registrationsModel
+      .aggregate(pipeline)
+      .exec();
 
     if (!registrations) {
       throw new NotFoundException({
         success: false,
-        message: 'Registrations not found',
+        message: "Registrations not found",
       });
     }
 
     const formattedRegistrations = formatRegistrations(registrations);
     const [wordFilePath, pdfFilePath] = await Promise.all([
       generateWordFile(formattedRegistrations),
-      generatePdfFile(formattedRegistrations)
+      generatePdfFile(formattedRegistrations),
     ]);
     return {
       wordFilePath,
-      pdfFilePath
+      pdfFilePath,
+    };
+  }
+
+  async generateReport(dto: ReportDto): Promise<{ wordFilePath: string }> {
+    const { from, to } = dto;
+
+    const pipeline = buildReportPipeline(
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
+    );
+
+    const result = await this.registrationsModel
+      .aggregate<ReportStats & { dateFrom?: Date; dateTo?: Date }>(pipeline)
+      .exec();
+
+    const stats = result[0];
+    if (!stats) {
+      throw new NotFoundException({
+        success: false,
+        message: "No registration data for report",
+      });
     }
+
+    const dateFrom =
+      from && to
+        ? new Date(from)
+        : stats.dateFrom
+          ? new Date(stats.dateFrom)
+          : new Date();
+    const dateTo =
+      from && to
+        ? new Date(to)
+        : stats.dateTo
+          ? new Date(stats.dateTo)
+          : new Date();
+
+    const wordFilePath = await generateReportWord(
+      {
+        total: stats.total ?? 0,
+        women: stats.women ?? 0,
+        men: stats.men ?? 0,
+        unemployed: stats.unemployed ?? 0,
+        pensioners: stats.pensioners ?? 0,
+        disabled: stats.disabled ?? 0,
+      },
+      dateFrom,
+      dateTo,
+    );
+
+    return { wordFilePath };
   }
 
   async getFilteredRegistrations(dto: GetFilteredRegistrationsDto) {
@@ -131,16 +194,16 @@ export class RegistrationsService {
       Object.assign(
         filters,
         await universalSearchQuery(dto.search.trim(), [
-          'fullName',
-          'phone',
-          'address',
-          'otherAddress',
-          'job',
-          'otherJob',
-          'visitReason',
-          'otherVisitReason',
-          'radiologyReport',
-          'otherRadiologyReport',
+          "fullName",
+          "phone",
+          "address",
+          "otherAddress",
+          "job",
+          "otherJob",
+          "visitReason",
+          "otherVisitReason",
+          "radiologyReport",
+          "otherRadiologyReport",
         ]),
       );
     }
@@ -169,18 +232,18 @@ export class RegistrationsService {
 
     const addRegexFilter = (field: string, value?: string) => {
       if (value?.trim()) {
-        filters[field] = { $regex: value.trim(), $options: 'i' };
+        filters[field] = { $regex: value.trim(), $options: "i" };
       }
     };
 
-    addRegexFilter('address', dto.address);
-    addRegexFilter('otherAddress', dto.otherAddress);
-    addRegexFilter('job', dto.job);
-    addRegexFilter('otherJob', dto.otherJob);
-    addRegexFilter('visitReason', dto.visitReason);
-    addRegexFilter('otherVisitReason', dto.otherVisitReason);
-    addRegexFilter('radiologyReport', dto.radiologyReport);
-    addRegexFilter('otherRadiologyReport', dto.otherRadiologyReport);
+    addRegexFilter("address", dto.address);
+    addRegexFilter("otherAddress", dto.otherAddress);
+    addRegexFilter("job", dto.job);
+    addRegexFilter("otherJob", dto.otherJob);
+    addRegexFilter("visitReason", dto.visitReason);
+    addRegexFilter("otherVisitReason", dto.otherVisitReason);
+    addRegexFilter("radiologyReport", dto.radiologyReport);
+    addRegexFilter("otherRadiologyReport", dto.otherRadiologyReport);
 
     const pipeline: any[] = [
       { $match: filters },
@@ -189,12 +252,15 @@ export class RegistrationsService {
       { $limit: limit },
     ];
 
-    const [registrations, totalCount, lastRegistration, pendingReportsCount] = await Promise.all([
-      this.registrationsModel.aggregate(pipeline).exec(),
-      this.registrationsModel.countDocuments(filters),
-      this.registrationsModel.findOne().sort({ createdAt: -1 }).lean(),
-      this.registrationsModel.countDocuments({radiologyReport: "pending"}).lean(),
-    ]);
+    const [registrations, totalCount, lastRegistration, pendingReportsCount] =
+      await Promise.all([
+        this.registrationsModel.aggregate(pipeline).exec(),
+        this.registrationsModel.countDocuments(filters),
+        this.registrationsModel.findOne().sort({ createdAt: -1 }).lean(),
+        this.registrationsModel
+          .countDocuments({ radiologyReport: "pending" })
+          .lean(),
+      ]);
 
     if (lastRegistration) {
       const idx = registrations.findIndex(
@@ -208,14 +274,13 @@ export class RegistrationsService {
       }
     }
 
-
     return {
       data: registrations,
       totalPagesCount: Math.ceil(totalCount / limit),
       totalCount,
       page,
       limit,
-      pendingReportsCount
+      pendingReportsCount,
     };
   }
 
@@ -289,7 +354,7 @@ export class RegistrationsService {
       };
     } catch (err) {
       console.log(err.message);
-      throw new BadRequestException('Error in createRegistration', err.message);
+      throw new BadRequestException("Error in createRegistration", err.message);
     }
   }
 
@@ -302,7 +367,7 @@ export class RegistrationsService {
       );
 
       if (!findRegistrationData) {
-        throw new NotFoundException('Registration data not found');
+        throw new NotFoundException("Registration data not found");
       }
 
       if (updateRegistrationDto.birthDate) {
@@ -325,7 +390,7 @@ export class RegistrationsService {
       };
     } catch (err) {
       console.error(err);
-      throw new BadRequestException('Error in updateRegistration', err.message);
+      throw new BadRequestException("Error in updateRegistration", err.message);
     }
   }
 
@@ -334,7 +399,7 @@ export class RegistrationsService {
       const findRegistrationData = await this.registrationsModel.findById(id);
 
       if (!findRegistrationData) {
-        throw new NotFoundException('Registration data not found');
+        throw new NotFoundException("Registration data not found");
       }
 
       await this.registrationsModel.findByIdAndDelete(id);
@@ -346,12 +411,11 @@ export class RegistrationsService {
         totalCount: countDocuments,
       };
     } catch (err) {
-      console.error('Error in deleteRegistration', err.message);
+      console.error("Error in deleteRegistration", err.message);
       throw new BadRequestException({
         success: false,
         message: err.message,
       });
     }
   }
-
 }

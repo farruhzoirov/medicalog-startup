@@ -52,7 +52,7 @@ export const generateWordFile = async (registrations: any[]) => {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    }).replace(/[\/\s:]/g, '-');
+    }).replace(/[\/\s:,]+/g, '-');
 
     const fileName = `medicalog-${dateTime}.docx`;
     const filePath = path.join(process.cwd(), 'uploads', fileName);
@@ -287,7 +287,7 @@ export const generatePdfFile = async (registrations: any[]) => {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    }).replace(/[\/\s:]/g, '-');
+    }).replace(/[\/\s:,]+/g, '-');
 
     const fileName = `medicalog-${dateTime}.pdf`;
     const filePath = path.join(process.cwd(), 'uploads', fileName);

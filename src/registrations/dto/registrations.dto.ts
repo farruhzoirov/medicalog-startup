@@ -18,6 +18,18 @@ export class AuthDto {
   password: string;
 }
 
+export class ContactDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  tgOrPhone: string;
+}
+
+
+
 export class ForGenerateWordDto {
   @IsOptional()
   @IsDateString()

@@ -47,6 +47,9 @@ jobs:
             MONGODB_URI=${{ secrets.MONGODB_URI }}
             LOGIN=${{ secrets.LOGIN }}
             PASSWORD=${{ secrets.PASSWORD }}
+            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+            ADMIN_1_ID=${{ secrets.ADMIN_1_ID }}
+            ADMIN_2_ID=${{ secrets.ADMIN_2_ID }}
             EOL
 
             pm2 start dist/main.js --name medicalog-startup || pm2 restart medicalog-startup

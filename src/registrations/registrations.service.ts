@@ -27,12 +27,14 @@ import {
   GetFilteredRegistrationsDto,
   UpdateRegistrationDto,
   ReportDto,
+  ContactDto,
 } from "./dto/registrations.dto";
 import {
   Registrations,
   RegistrationsDocument,
 } from "./schemas/registrations.schema";
 import { buildReportPipeline } from "../helpers/build-report-pipeline.helper";
+import { sendMessage } from "src/helpers/send-message";
 
 @Injectable()
 export class RegistrationsService {
@@ -60,6 +62,15 @@ export class RegistrationsService {
     }
 
     return false;
+  }
+
+  async contact(contactDto: ContactDto) {
+    const { name, tgOrPhone } = contactDto;
+    const messageText = `🔔 Yangi xabar! \n\n👤 Ism: ${name}\n📱 Telegram/Telefon: ${
+      tgOrPhone || "Ko'rsatilmagan"
+    }\n
+    }`;
+    await sendMessage(messageText, this.configService.get("BOT").TELEGRAM_BOT_TOKEN, this.configService.get("BOT").ADMIN_1_ID, this.configService.get("BOT").ADMIN_2_ID);
   }
 
   async generateWordAndPdfFile(

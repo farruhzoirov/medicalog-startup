@@ -14,6 +14,7 @@ import {
   GetFilteredRegistrationsDto,
   UpdateRegistrationDto,
   ReportDto,
+  ContactDto,
 } from "./dto/registrations.dto";
 import { RegistrationsService } from "./registrations.service";
 
@@ -37,6 +38,16 @@ export class RegistrationsController {
     return {
       success: true,
       message: "Authorized successfully",
+    };
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post("/contact")
+  async contact(@Body() contactDto: ContactDto) {
+    await this.registrationsService.contact(contactDto);
+    return {
+      success: true,
+      message: "Message sent successfully",
     };
   }
 

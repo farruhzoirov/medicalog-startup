@@ -68,8 +68,7 @@ export class RegistrationsService {
     const { name, tgOrPhone } = contactDto;
     const messageText = `🔔 Yangi xabar! \n\n👤 Ism: ${name}\n📱 Telegram/Telefon: ${
       tgOrPhone || "Ko'rsatilmagan"
-    }\n
-    }`;
+    }\n`;
     await sendMessage(messageText, this.configService.get("BOT").TELEGRAM_BOT_TOKEN, this.configService.get("BOT").ADMIN_1_ID, this.configService.get("BOT").ADMIN_2_ID);
   }
 

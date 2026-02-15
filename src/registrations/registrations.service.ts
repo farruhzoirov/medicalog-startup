@@ -12,7 +12,9 @@ import { createDateRangeFilter } from "src/helpers/dateRangeFilter.helper";
 import { formatDate } from "src/helpers/formatDate.helper";
 import { formatRegistrations } from "src/helpers/formatRegistrations.helper";
 import {
+  generateReportPdf,
   generateReportWord,
+  getReportFileTimestamp,
   ReportStats,
 } from "src/helpers/generateReport.helper";
 import {
@@ -144,7 +146,10 @@ export class RegistrationsService {
     };
   }
 
-  async generateReport(dto: ReportDto): Promise<{ wordFilePath: string }> {
+  async generateReport(dto: ReportDto): Promise<{
+    wordFilePath: string;
+    pdfFilePath: string;
+  }> {
     const { from, to } = dto;
 
     const pipeline = buildReportPipeline(
@@ -177,20 +182,22 @@ export class RegistrationsService {
           ? new Date(stats.dateTo)
           : new Date();
 
-    const wordFilePath = await generateReportWord(
-      {
-        total: stats.total ?? 0,
-        women: stats.women ?? 0,
-        men: stats.men ?? 0,
-        unemployed: stats.unemployed ?? 0,
-        pensioners: stats.pensioners ?? 0,
-        disabled: stats.disabled ?? 0,
-      },
-      dateFrom,
-      dateTo,
-    );
+    const reportStats = {
+      total: stats.total ?? 0,
+      women: stats.women ?? 0,
+      men: stats.men ?? 0,
+      unemployed: stats.unemployed ?? 0,
+      pensioners: stats.pensioners ?? 0,
+      disabled: stats.disabled ?? 0,
+    };
 
-    return { wordFilePath };
+    const fileTimestamp = getReportFileTimestamp();
+    const [wordFilePath, pdfFilePath] = await Promise.all([
+      generateReportWord(reportStats, dateFrom, dateTo, fileTimestamp),
+      generateReportPdf(reportStats, dateFrom, dateTo, fileTimestamp),
+    ]);
+
+    return { wordFilePath, pdfFilePath };
   }
 
   async getFilteredRegistrations(dto: GetFilteredRegistrationsDto) {

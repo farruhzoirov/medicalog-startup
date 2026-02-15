@@ -54,12 +54,13 @@ export class RegistrationsController {
   @HttpCode(HttpStatus.OK)
   @Post("/reports")
   async generateReport(@Body() reportDto: ReportDto) {
-    const { wordFilePath } =
+    const { wordFilePath, pdfFilePath } =
       await this.registrationsService.generateReport(reportDto);
     return {
       success: true,
       message: "Report generated successfully",
-      filePath: wordFilePath,
+      wordFilePath,
+      pdfFilePath,
     };
   }
 
